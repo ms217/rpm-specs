@@ -3,7 +3,7 @@
 Name:		node_exporter
 Version:	0.12.0
 Release:        1%{?dist}
-Epoch:          1
+Epoch:          2
 Group:          Applications/System
 Summary:	Prometheus exporter for machine metrics, written in Go with pluggable metric collectors.
 License:	ASL 2.0
@@ -24,7 +24,6 @@ Source3:  node_exporter.initd
 Requires(pre): shadow-utils
 
 %description
-
 Prometheus exporter for machine metrics, written in Go with pluggable metric collectors.
 
 %prep
@@ -34,7 +33,7 @@ Prometheus exporter for machine metrics, written in Go with pluggable metric col
 /bin/true
 
 %install
-mkdir -vp %{buildroot}/var/lib/prometheus
+mkdir -vp %{buildroot}/var/lib/prometheus/metrics
 mkdir -vp %{buildroot}/usr/bin
 %if %{with_systemd}
 mkdir -vp %{buildroot}/usr/lib/systemd/system
@@ -92,9 +91,12 @@ fi
 %{_initrddir}/node_exporter
 %endif
 %config(noreplace) /etc/sysconfig/node_exporter
-%attr(755, prometheus, prometheus)/var/lib/prometheus
+%attr(755, prometheus, prometheus)/var/lib/prometheus/metrics
 
 %changelog
+* Fri Nov 04 2016 Michael Seevogel <michael@michaelseevogel.de> - 1:0.12.0-2
+- Adjusted sources for the upcoming textfile collector package
+
 * Wed Nov 02 2016 Michael Seevogel <michael@michaelseevogel.de> - 1:0.12.0-1
 - Initial node_exporter package
 - buildable on EL6 and EL7
