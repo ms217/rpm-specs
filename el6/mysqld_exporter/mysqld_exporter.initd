@@ -1,0 +1,58 @@
+#!/bin/bash
+#
+# /etc/rc.d/init.d/mysqld_exporter
+#
+# MySQL metrics collector
+#
+#  chkconfig: 2345 20 80 Read
+#  description: MySQL metrics collector
+#  processname: mysqld_exporter
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+. /etc/sysconfig/mysqld_exporter
+
+PROGNAME=mysqld_exporter
+PROG=/usr/bin/$PROGNAME
+USER=prometheus
+LOCKFILE=/var/run/$PROGNAME.pid
+
+
+start() {
+    echo -n "Starting $PROGNAME: "
+    daemon --user $USER --pidfile="$LOCKFILE" "$PROG $NODE_EXPORTER_OPTS &"
+    echo $(pidofproc $PROGNAME) >$LOCKFILE
+    echo
+}
+
+stop() {
+    echo -n "Shutting down $PROGNAME: "
+    killproc $PROGNAME
+    rm -f $LOCKFILE
+    echo
+}
+
+
+case "$1" in
+    start)
+    start
+    ;;
+    stop)
+    stop
+    ;;
+    status)
+    status $PROGNAME
+    ;;
+    restart)
+    stop
+    start
+    ;;
+    reload)
+    echo "Sending SIGHUP to $PROGNAME"
+    kill -SIGHUP $(pidofproc $PROGNAME)
+    ;;
+    *)
+        echo "Usage: <servicename> {start|stop|status|reload|restart}"
+        exit 1
+    ;;
+esac
