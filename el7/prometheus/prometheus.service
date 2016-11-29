@@ -1,0 +1,13 @@
+[Unit]
+Description=Prometheus monitoring system and time series database
+Documentation=https://github.com/prometheus/prometheus
+After=network.target
+
+[Service]
+EnvironmentFile=-/etc/sysconfig/prometheus
+User=prometheus
+ExecStart=/usr/bin/prometheus $PROMETHEUS_OPTS
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
