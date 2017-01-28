@@ -1,0 +1,12 @@
+diff -up tre-c2f5d130c91b1696385a6ae0b5bcfd5214bcc9ca/lib/tre-parse.c.issue37 tre-c2f5d130c91b1696385a6ae0b5bcfd5214bcc9ca/lib/tre-parse.c
+--- tre-c2f5d130c91b1696385a6ae0b5bcfd5214bcc9ca/lib/tre-parse.c.issue37	2014-02-28 19:55:36.000000000 +0100
++++ tre-c2f5d130c91b1696385a6ae0b5bcfd5214bcc9ca/lib/tre-parse.c	2016-11-02 21:01:51.705351218 +0100
+@@ -1480,6 +1480,8 @@ tre_parse(tre_parse_ctx_t *ctx)
+ 		      ctx->re++;
+ 		      while (ctx->re_end - ctx->re >= 0)
+ 			{
++			  if (i == sizeof(tmp))
++			    return REG_EBRACE;
+ 			  if (ctx->re[0] == CHAR_RBRACE)
+ 			    break;
+ 			  if (tre_isxdigit(ctx->re[0]))
