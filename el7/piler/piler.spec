@@ -5,6 +5,15 @@
 
 %define build_user mockbuild 
 
+%if 0%{?fedora} >= 18 || 0%{?rhel} >= 7
+%global with_systemd 1
+%else
+%global with_systemd 0
+%endif
+
+#prevent rpm's automatic dependency scanning of the contrib dir
+%global __requires_exclude_from ^/usr/share/piler/contrib/.*$
+
 
 Name:		piler
 Version:	1.2.0
@@ -25,34 +34,28 @@ Source6:	searchd.default
 Patch1:         piler_1.2.0-compilefix.patch
 Patch2:         webgui_737.patch
 Patch3:         msg_verification_fix.patch
-Patch4:         stat_fix_virusmails.patch
+Patch4:		stat_fix_virusmails.patch
 
+Provides:       libpiler.so()(64bit)
+BuildRoot:      %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
 BuildRequires:  tcp_wrappers-devel openssl-devel libzip-devel mysql-devel clamav-devel
 BuildRequires:  sysstat catdoc poppler-utils tnef unrtf wget
-Requires:       tre openssl tcp_wrappers libzip sysstat catdoc poppler-utils tnef unrtf wget clamav-server clamav
+Requires:       openssl tcp_wrappers libzip sysstat catdoc poppler-utils tnef unrtf wget clamav-server clamav
 Requires:	php php-mysql php-pecl-memcache mysql httpd memcached sphinx
+
 
 %if 0%{?fedora} >= 19 || 0%{?rhel} >= 7
 Requires:	mariadb-server
-BuildRequires:  tre-devel
+BuildRequires:  tre tre-devel
 %else
 Requires:	mysql-server
 #CentOS 6/EPEL 6 comes with tre 0.7.6 which is too old
-BuildRequires:	tre-devel >= 0.8
-%endif
-
-
-Provides:	libpiler.so()(64bit)
-
-BuildRoot:      %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
-
-
-
-%if 0%{?fedora} >= 18 || 0%{?rhel} >= 7
-%global with_systemd 1
-%else
-%global with_systemd 0
+#If you want to compile Piler for CentOS 6 you'll need
+#to have a more recent version of tre. You may want to
+#backport tre from CentOS/RHEL 7.
+Requires:	tre >= 0.8
+BuildRequires:  tre-devel >= 0.8
 %endif
 
 
@@ -78,11 +81,13 @@ Piler is a feature rich open source email archiving solution, and a viable alter
 %prep
 %setup -q
 
+
 #patches
 %patch1 -p1
 %patch2 -p1
 %patch3 -p1
 %patch4 -p1
+
 
 
 
@@ -102,9 +107,9 @@ make %{?_smp_mflags}
 
 %install
 rm -rf $RPM_BUILD_ROOT
-getent group piler >/dev/null || /usr/sbin/groupadd -r piler >/dev/null 2>&1 || :
-getent passwd piler >/dev/null || /usr/sbin/useradd -r -g piler -d /var/piler -s /bin/bash -c "Mailpiler Server" piler >/dev/null 2>&1 || :
+
 make DESTDIR=$RPM_BUILD_ROOT install
+
 
 %if %{with_systemd}
 mkdir -vp %{buildroot}/usr/lib/systemd/system
@@ -126,13 +131,11 @@ mv -f contrib/* %{buildroot}/usr/share/piler/contrib
 
 
 #webui stuff
-#mkdir -p %{buildroot}/%{_localstatedir}/lib/%{name}
-#mv -f webui/* %{buildroot}/%{_localstatedir}/lib/%{name}
 mkdir -p %{buildroot}/var/www/%{name}
 mv -f webui/* %{buildroot}/var/www/%{name}
 mv -f webui/.htaccess %{buildroot}/var/www/%{name}
 
-#sysconfig and systemd/sysv-init stuff:
+#sysconfig:
 mkdir %{buildroot}/etc/sysconfig
 mv -f %{SOURCE3} %{buildroot}/etc/sysconfig/piler
 
@@ -145,6 +148,9 @@ mkdir -p $RPM_BUILD_ROOT/etc/ld.so.conf.d
 mkdir -p $RPM_BUILD_ROOT/%{_libdir}/piler
 mv -f $RPM_BUILD_ROOT/%{_libdir}/libpiler* $RPM_BUILD_ROOT/%{_libdir}/piler
 echo "%{_libdir}/piler" > $RPM_BUILD_ROOT/etc/ld.so.conf.d/%{name}-%{_arch}.conf
+
+
+sed -i 's#SPHINXCFG="/usr/local/etc/piler/sphinx.conf"#SPHINXCFG="/etc/piler/sphinx.conf"#g' $RPM_BUILD_ROOT/usr/libexec/piler/postinstall.sh
 
 
 
@@ -224,6 +230,8 @@ fi
 %endif
 %endif
 
+#TODO: add here checks if any webserver config exists and erase them
+
 
 
 %files
@@ -279,7 +287,6 @@ fi
 /usr/share/piler/db-upgrade-1.1.0-vs-1.2.0.sql
 /usr/share/piler/db-upgrade-0.1.24-vs-1.1.0.sql
 
-#%{_localstatedir}/lib/%{name}/*
 /var/www/%{name}/*
 /var/www/%{name}/.htaccess
 
