@@ -1,0 +1,14 @@
+[Unit]
+Description=SphinxSearch Search Engine
+After=network.target
+
+[Service]
+EnvironmentFile=-/etc/sysconfig/sphinx
+User=piler
+ExecStart=/usr/bin/searchd --config /etc/piler/sphinx.conf $SPHINX_OPTS
+PIDFile=/var/run/piler/searchd.pid
+LimitNOFILE=infinity
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

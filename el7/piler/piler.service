@@ -1,0 +1,14 @@
+[Unit]
+Description=Piler is a feature rich open source email archiving solution
+Documentation=http://www.mailpiler.org/
+After=network.target
+
+[Service]
+EnvironmentFile=-/etc/sysconfig/piler
+User=piler
+ExecStart=/usr/sbin/piler -d $PILER_OPTS
+PIDFile=/var/run/piler/piler.pid
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,59 @@
+#!/bin/bash
+#
+# /etc/rc.d/init.d/piler
+#
+# piler email archiver
+#
+#  chkconfig: 2345 20 80 Read
+#  description: Piler is a feature rich open source email archiving solution
+#  processname: piler
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+. /etc/sysconfig/piler
+
+PROGNAME=piler
+PROG=/usr/sbin/$PROGNAME
+USER=piler
+LOCKFILE=/var/run/$PROGNAME/$PROGNAME.pid
+
+
+start() {
+    echo -n "Starting $PROGNAME: "
+    daemon --user $USER --pidfile="$LOCKFILE" "$PROG $PILER_OPTS &"
+    echo $(pidofproc $PROGNAME) >$LOCKFILE
+    echo
+}
+
+stop() {
+    echo -n "Shutting down $PROGNAME: "
+    killproc $PROGNAME
+    rm -f $LOCKFILE
+    echo
+}
+
+
+case "$1" in
+    start)
+    start
+    ;;
+    stop)
+    stop
+    ;;
+    status)
+    status $PROGNAME
+    ;;
+    restart)
+    stop
+    start
+    ;;
+    reload)
+    echo "Sending SIGHUP to $PROGNAME"
+    kill -SIGHUP $(pidofproc $PROGNAME)
+    ;;
+    *)
+        echo "Usage: <servicename> {start|stop|status|reload|restart}"
+        exit 1
+    ;;
+esac
+

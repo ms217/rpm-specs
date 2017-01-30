@@ -1,0 +1,59 @@
+#!/bin/bash
+#
+# /etc/rc.d/init.d/piler
+#
+# SphinxSearch Search Engine
+#
+#  chkconfig: 2345 20 80 Read
+#  description: Sphinx is an open source full text search server, designed from the ground up with performance, relevance (aka search quality), and integration simplicity in mind.
+#  processname: piler
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+. /etc/sysconfig/searchd
+
+PROGNAME=searchd
+PROG=/usr/bin/$PROGRNAME
+USER=piler
+LOCKFILE=/var/run/piler/$PROGNAME.pid
+
+
+start() {
+    echo -n "Starting $PROGNAME: "
+    daemon --user $USER --pidfile="$LOCKFILE" "$PROG --config /etc/piler/sphinx.conf $PILER_OPTS &"
+    echo $(pidofproc $PROGNAME) >$LOCKFILE
+    echo
+}
+
+stop() {
+    echo -n "Shutting down $PROGNAME: "
+    killproc $PROGNAME
+    rm -f $LOCKFILE
+    echo
+}
+
+
+case "$1" in
+    start)
+    start
+    ;;
+    stop)
+    stop
+    ;;
+    status)
+    status $PROGNAME
+    ;;
+    restart)
+    stop
+    start
+    ;;
+    reload)
+    echo "Sending SIGHUP to $PROGNAME"
+    kill -SIGHUP $(pidofproc $PROGNAME)
+    ;;
+    *)
+        echo "Usage: <servicename> {start|stop|status|reload|restart}"
+        exit 1
+    ;;
+esac
+
