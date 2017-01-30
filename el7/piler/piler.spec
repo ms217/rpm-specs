@@ -8,7 +8,7 @@
 
 Name:		piler
 Version:	1.2.0
-Release:	1%{?dist}
+Release:	2%{?dist}
 Summary:	Piler is a feature rich open source email archiving solution
 
 Group:		Applications/System
@@ -21,6 +21,12 @@ Source3:	piler.default
 Source4:	searchd.initd
 Source5:	searchd.service
 Source6:	searchd.default
+
+Patch1:         piler_1.2.0-compilefix.patch
+Patch2:         webgui_737.patch
+Patch3:         msg_verification_fix.patch
+Patch4:         stat_fix_virusmails.patch
+
 
 BuildRequires:  tcp_wrappers-devel openssl-devel libzip-devel mysql-devel clamav-devel
 BuildRequires:  sysstat catdoc poppler-utils tnef unrtf wget
@@ -71,6 +77,12 @@ Piler is a feature rich open source email archiving solution, and a viable alter
 
 %prep
 %setup -q
+
+#patches
+%patch1 -p1
+%patch2 -p1
+%patch3 -p1
+%patch4 -p1
 
 
 
@@ -282,5 +294,12 @@ fi
 
 
 %changelog
+* Mon Jan 30 2017 Michael Seevogel <michael at michaelseevogel.de> - 1:1.2.0-2
+- Fixed an issue where the web gui was not showing the body for some emails
+- Fixed an issue where Message verification failed
+- ClamD related compile fix
+- Minor buildfixes and enhancements
+- fixed status value for infected emails
+
 * Tue Jan 24 2017 Michael Seevogel <michael at michaelseevogel.de> - 1:1.2.0-1
 - Piler 1.2.0. release
