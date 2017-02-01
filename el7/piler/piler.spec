@@ -17,7 +17,7 @@
 
 Name:		piler
 Version:	1.2.0
-Release:	2%{?dist}
+Release:	3%{?dist}
 Summary:	Piler is a feature rich open source email archiving solution
 
 Group:		Applications/System
@@ -29,27 +29,33 @@ Source2:	piler.initd
 Source3:	piler.default
 Source4:	searchd.initd
 Source5:	searchd.service
-Source6:	searchd.default
 
 Patch1:         piler_1.2.0-compilefix.patch
 Patch2:         webgui_737.patch
 Patch3:         msg_verification_fix.patch
 Patch4:		stat_fix_virusmails.patch
+Patch5:		policy_fix.patch
+Patch6:		sphinx_sql.patch
+
 
 Provides:       libpiler.so()(64bit)
 BuildRoot:      %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
 BuildRequires:  tcp_wrappers-devel openssl-devel libzip-devel mysql-devel clamav-devel
 BuildRequires:  sysstat catdoc poppler-utils tnef unrtf wget
-Requires:       openssl tcp_wrappers libzip sysstat catdoc poppler-utils tnef unrtf wget clamav-server clamav
-Requires:	php php-mysql php-pecl-memcache mysql httpd memcached sphinx
+Requires:       openssl tcp_wrappers libzip sysstat catdoc poppler-utils tnef unrtf wget
+Requires:	php php-mysql php-pecl-memcache php-ldap php-gd gd mysql memcached sphinx
+Requires:	clamav-server clamav clamav-scanner clamav-update
+Requires:	webserver
 
 
 %if 0%{?fedora} >= 19 || 0%{?rhel} >= 7
-Requires:	mariadb-server
-BuildRequires:  tre tre-devel
+Requires:	mariadb-server tre
+Requires:	clamav-server-systemd clamav-scanner-systemd
+BuildRequires:  tre-devel
 %else
 Requires:	mysql-server
+Requires:	clamav-server-sysvinit clamav-scanner-sysvinit
 #CentOS 6/EPEL 6 comes with tre 0.7.6 which is too old
 #If you want to compile Piler for CentOS 6 you'll need
 #to have a more recent version of tre. You may want to
@@ -87,7 +93,8 @@ Piler is a feature rich open source email archiving solution, and a viable alter
 %patch2 -p1
 %patch3 -p1
 %patch4 -p1
-
+%patch5 -p1
+%patch6 -p1
 
 
 
@@ -126,7 +133,10 @@ mv -f util/db-upgrade-1.1.0-vs-1.2.0.sql %{buildroot}/usr/share/piler
 
 #contrib stuff
 mkdir %{buildroot}/usr/share/piler/contrib
+mkdir %{buildroot}/usr/share/piler/contrib/searchd_startscripts
 mv -f contrib/* %{buildroot}/usr/share/piler/contrib
+cp %{SOURCE4} %{buildroot}/usr/share/piler/contrib/searchd_startscripts
+cp %{SOURCE5} %{buildroot}/usr/share/piler/contrib/searchd_startscripts
 
 
 
@@ -134,6 +144,18 @@ mv -f contrib/* %{buildroot}/usr/share/piler/contrib
 mkdir -p %{buildroot}/var/www/%{name}
 mv -f webui/* %{buildroot}/var/www/%{name}
 mv -f webui/.htaccess %{buildroot}/var/www/%{name}
+
+#adjust piler bin paths
+sed -i 's#/usr/local/bin/#/usr/bin/#g' %{buildroot}/var/www/%{name}/config.php
+sed -i 's#/usr/local/sbin/#/usr/sbin/#g' %{buildroot}/var/www/%{name}/config.php
+
+#adjust daemon handling
+%if %{with_systemd}
+sed -i 's#sudo -n /etc/init.d/rc.piler reload#sudo -n systemctl restart piler#g' %{buildroot}/var/www/%{name}/config.php
+%else
+sed -i 's#sudo -n /etc/init.d/rc.piler reload#sudo -n /etc/init.d/piler reload#g' %{buildroot}/var/www/%{name}/config.php
+%endif
+
 
 #sysconfig:
 mkdir %{buildroot}/etc/sysconfig
@@ -158,15 +180,17 @@ sed -i 's#SPHINXCFG="/usr/local/etc/piler/sphinx.conf"#SPHINXCFG="/etc/piler/sph
 rm -rf $RPM_BUILD_ROOT
 
 %pre
-getent group piler >/dev/null || /usr/sbin/groupadd -r piler >/dev/null 2>&1 || :
-getent passwd piler >/dev/null || /usr/sbin/useradd -r -g piler -d /var/piler -s /bin/bash -c "Mailpiler Server" piler >/dev/null 2>&1 || :
+#since RHEL/CENTOS >= 6 supports up to 32bit u_ids we gonna use the id 74537 for user and group.
+#743537 is simply the translated alphanumeric/telephon number for piler and it's unlikely that this id is already in use...
+getent group piler >/dev/null || /usr/sbin/groupadd -g 74537 -o -r piler >/dev/null 2>&1 || :
+getent passwd piler >/dev/null || /usr/sbin/useradd -M -N -g piler -o -r -d /var/piler -s /bin/bash -c "Mailpiler Server" -u 74537 piler >/dev/null 2>&1 || :
 
 %post
 /sbin/ldconfig
 
 %if %{with_systemd}
 %systemd_post piler.service
-#%systemd_post searchd.service
+%systemd_post searchd.service
 %else
 if [ $1 = 1 ]; then
     # Initial installation
@@ -181,10 +205,11 @@ fi
 
 # print postinstall instructions
 echo -e "--------------------------------------------------------"
+echo -e ""
 echo -e "Thanks for using Piler!"
 echo -e ""
-echo -e "Do not forget to run the Piler postinstallation script"
-echo -e "which can be found in: /usr/libexec/piler/postinstall.sh"
+echo -e "Do not forget to run the Piler postinstallation script!"
+echo -e "You can execute via /usr/libexec/piler/postinstall.sh"
 echo -e ""
 echo -e "--------------------------------------------------------"
 
@@ -229,6 +254,8 @@ if [ $1 -ge 1 ]; then
 fi
 %endif
 %endif
+/usr/sbin/userdel -r piler >/dev/null 2>&1 || :
+/usr/sbin/groupdel piler >/dev/null 2>&1 || :
 
 #TODO: add here checks if any webserver config exists and erase them
 
@@ -301,6 +328,11 @@ fi
 
 
 %changelog
+* Tue Jan 31 2017 Michael Seevogel <michael at michaelseevogel.de> - 1:1.2.0-3
+- added several missing build-dependencies
+- added webui policy fix
+- added sql fix for sphinx config 
+
 * Mon Jan 30 2017 Michael Seevogel <michael at michaelseevogel.de> - 1:1.2.0-2
 - Fixed an issue where the web gui was not showing the body for some emails
 - Fixed an issue where Message verification failed

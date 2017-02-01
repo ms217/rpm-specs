@@ -1,14 +1,25 @@
 [Unit]
 Description=SphinxSearch Search Engine
-After=network.target
+After=network.target remote-fs.target nss-lookup.target
+After=syslog.target
 
 [Service]
-EnvironmentFile=-/etc/sysconfig/sphinx
+Type=forking
 User=piler
-ExecStart=/usr/bin/searchd --config /etc/piler/sphinx.conf $SPHINX_OPTS
-PIDFile=/var/run/piler/searchd.pid
+Group=piler
+# Run ExecStartPre with root-permissions
+PermissionsStartOnly=true
+ExecStartPre=/bin/mkdir -p /var/run/piler
+ExecStartPre=/bin/chown piler.piler /var/run/piler
+# Run ExecStart with User=sphinx / Group=sphinx
+ExecStart=/usr/bin/searchd --config /etc/piler/sphinx.conf
+KillMode=process
+KillSignal=SIGTERM
+SendSIGKILL=no
 LimitNOFILE=infinity
-Restart=on-failure
+PIDFile=/var/run/piler/searchd.pid
 
 [Install]
 WantedBy=multi-user.target
+Alias=sphinx.service
+Alias=sphinxsearch.service

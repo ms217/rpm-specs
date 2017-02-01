@@ -1,1 +1,1 @@
-PILER_OPTS=""
+PILER_OPTS="-c /etc/piler/piler.conf"
