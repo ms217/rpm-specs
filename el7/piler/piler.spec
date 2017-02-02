@@ -17,7 +17,7 @@
 
 Name:		piler
 Version:	1.2.0
-Release:	3%{?dist}
+Release:	2%{?dist}
 Summary:	Piler is a feature rich open source email archiving solution
 
 Group:		Applications/System
@@ -44,8 +44,9 @@ BuildRoot:      %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 BuildRequires:  tcp_wrappers-devel openssl-devel libzip-devel mysql-devel clamav-devel
 BuildRequires:  sysstat catdoc poppler-utils tnef unrtf wget
 Requires:       openssl tcp_wrappers libzip sysstat catdoc poppler-utils tnef unrtf wget
-Requires:	php php-mysql php-pecl-memcache php-ldap php-gd gd mysql memcached sphinx
+Requires:	php php-mysql php-pecl-memcache php-ldap php-gd gd mysql memcached
 Requires:	clamav-server clamav clamav-scanner clamav-update
+Requires:	sphinx >= 2.2
 Requires:	webserver
 
 
@@ -58,8 +59,8 @@ Requires:	mysql-server
 Requires:	clamav-server-sysvinit clamav-scanner-sysvinit
 #CentOS 6/EPEL 6 comes with tre 0.7.6 which is too old
 #If you want to compile Piler for CentOS 6 you'll need
-#to have a more recent version of tre. You may want to
-#backport tre from CentOS/RHEL 7.
+#to have a more recent version of tre. You may simply
+#want to backport tre from CentOS/RHEL 7.
 Requires:	tre >= 0.8
 BuildRequires:  tre-devel >= 0.8
 %endif
@@ -139,17 +140,19 @@ cp %{SOURCE4} %{buildroot}/usr/share/piler/contrib/searchd_startscripts
 cp %{SOURCE5} %{buildroot}/usr/share/piler/contrib/searchd_startscripts
 
 
-
 #webui stuff
 mkdir -p %{buildroot}/var/www/%{name}
 mv -f webui/* %{buildroot}/var/www/%{name}
 mv -f webui/.htaccess %{buildroot}/var/www/%{name}
 
-#adjust piler bin paths
+
+#adjust several piler paths
 sed -i 's#/usr/local/bin/#/usr/bin/#g' %{buildroot}/var/www/%{name}/config.php
 sed -i 's#/usr/local/sbin/#/usr/sbin/#g' %{buildroot}/var/www/%{name}/config.php
+sed -i 's#/var/www/piler.yourdomain.com/#/var/www/piler/#g' %{buildroot}/var/www/%{name}/config.php
 
-#adjust daemon handling
+
+#adjust daemon handling in the config.php
 %if %{with_systemd}
 sed -i 's#sudo -n /etc/init.d/rc.piler reload#sudo -n systemctl restart piler#g' %{buildroot}/var/www/%{name}/config.php
 %else
@@ -203,13 +206,21 @@ if [ $1 = 1 ]; then
 fi
 %endif
 
+#add apache user to piler group
+#usermod apache --append --groups piler
+
+#adjust sphinx dir permissions
+[ -d /var/log/sphinx ] && chown -R piler.piler /var/log/sphinx
+[ -d /var/lib/sphinx ] && chown -R piler.piler /var/lib/sphinx
+
+
 # print postinstall instructions
 echo -e "--------------------------------------------------------"
 echo -e ""
 echo -e "Thanks for using Piler!"
 echo -e ""
 echo -e "Do not forget to run the Piler postinstallation script!"
-echo -e "You can execute via /usr/libexec/piler/postinstall.sh"
+echo -e "You can execute it via /usr/libexec/piler/postinstall.sh"
 echo -e ""
 echo -e "--------------------------------------------------------"
 
@@ -257,7 +268,29 @@ fi
 /usr/sbin/userdel -r piler >/dev/null 2>&1 || :
 /usr/sbin/groupdel piler >/dev/null 2>&1 || :
 
-#TODO: add here checks if any webserver config exists and erase them
+#revert apache group membership to default
+#usermod -G apache apache
+
+echo -e "---------------------------------------------------------"
+echo -e ""
+echo -e "The uninstall routine does not delete file/dirs/databases"
+echo -e "which were created by the postinstall script nor anything"
+echo -e "created by yourself. The following things you may want to"
+echo -e "remove/clean up:"
+echo -e ""
+echo -e "1. Directories:"
+echo -e "				/var/www/piler"
+echo -e "				/var/piler"
+echo -e ""
+echo -e ""
+echo -e "2. The Piler database"
+echo -e "3. Any leftovers in /etc/piler"
+echo -e ""
+echo -e "---------------------------------------------------------"
+
+
+
+#TODO: add here checks if any webserver config exists and erase it
 
 
 
@@ -266,11 +299,12 @@ fi
 %doc README RELEASE_NOTES VERSION LICENSE CREDITS
 %dir /usr/libexec/piler
 %dir /etc/piler
-%dir /var/piler
-%dir /var/piler/store
-%dir /var/piler/stat
-%dir /var/piler/tmp
-%dir /var/piler/sphinx
+%attr(0755,piler,piler) %dir /var/piler
+%attr(0755,piler,piler) %dir /var/piler/store
+%attr(0755,piler,piler) %dir /var/piler/stat
+%attr(0755,piler,piler) %dir /var/piler/tmp
+%attr(0755,piler,piler) %dir /var/piler/sphinx
+%attr(0755,piler,piler) %dir /var/piler/imap
 
 %dir %{_libdir}/piler
 %{_libdir}/piler/libpiler.a
@@ -282,14 +316,13 @@ fi
 
 %attr(0755,root,piler) %{_sbindir}/piler
 %attr(0755,root,piler) %{_sbindir}/pilerconf
-%attr(0755,root,piler) /usr/bin/pilerget
-%attr(0755,root,piler) /usr/bin/pileraget
-%attr(0755,root,piler) /usr/bin/pilerimport
-%attr(0755,root,piler) /usr/bin/pilerexport
-%attr(0755,root,piler) /usr/bin/pilerpurge
-%attr(0755,root,piler) /usr/bin/reindex
-%attr(0755,root,piler) /usr/bin/pilertest
-#%attr(6555,piler,piler) /usr/bin/pilertest
+%attr(6755,piler,piler) /usr/bin/pilerget
+%attr(6755,piler,piler) /usr/bin/pileraget
+%attr(6755,piler,piler) /usr/bin/pilerimport
+%attr(6755,piler,piler) /usr/bin/pilerexport
+%attr(6755,piler,piler) /usr/bin/pilerpurge
+%attr(6755,piler,piler) /usr/bin/reindex
+%attr(6755,piler,piler) /usr/bin/pilertest
 /etc/piler/piler.conf.dist
 
 %config(noreplace) /etc/sysconfig/piler
@@ -328,17 +361,15 @@ fi
 
 
 %changelog
-* Tue Jan 31 2017 Michael Seevogel <michael at michaelseevogel.de> - 1:1.2.0-3
-- added several missing build-dependencies
-- added webui policy fix
-- added sql fix for sphinx config 
-
-* Mon Jan 30 2017 Michael Seevogel <michael at michaelseevogel.de> - 1:1.2.0-2
+* Thu Feb 02 2017 Michael Seevogel <michael at michaelseevogel.de> - 1:1.2.0-2
 - Fixed an issue where the web gui was not showing the body for some emails
 - Fixed an issue where Message verification failed
 - ClamD related compile fix
-- Minor buildfixes and enhancements
 - fixed status value for infected emails
+- added webui policy fix
+- added sql fix for sphinx config
+- added several missing build-dependencies
+- Minor buildfixes and enhancements
 
 * Tue Jan 24 2017 Michael Seevogel <michael at michaelseevogel.de> - 1:1.2.0-1
 - Piler 1.2.0. release
