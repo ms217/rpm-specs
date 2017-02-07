@@ -1,5 +1,5 @@
 Name:           clamav-unofficial-sigs
-Version:        5.4.1
+Version:        5.1.1
 Release:        1%{?dist}
 Summary:        Scripts to download unoffical clamav signatures 
 Group:          Applications/System
